@@ -17,11 +17,11 @@ use crate::util::{from_wide, wide};
 
 #[derive(Clone)]
 pub struct MouseDevice {
-    /// Raw Inputのデバイスハンドル値。再接続で変わるため永続化しない。
+    /// Raw Input device handle value. Changes on reconnect, so it is not persisted.
     pub handle: isize,
-    /// デバイスインターフェイスパス。設定のキーとして使う。
+    /// Device interface path. Used as the config key.
     pub path: String,
-    /// 表示用の名前。
+    /// Display name.
     pub name: String,
 }
 
@@ -80,7 +80,7 @@ fn friendly_name(path: &str) -> String {
         .unwrap_or_else(|| short_name(path))
 }
 
-/// HIDデバイスから製品名文字列を取得する(例: "TPPS/2 Elan TrackPoint")。
+/// Get the product string from a HID device (e.g. "TPPS/2 Elan TrackPoint").
 fn hid_product_string(path: &str) -> Option<String> {
     unsafe {
         let wpath = wide(path);
@@ -109,10 +109,10 @@ fn hid_product_string(path: &str) -> Option<String> {
     }
 }
 
-/// デバイスマネージャーに表示される名前(DEVPKEY_NAME)を取得する。
-/// PS/2接続のTrackPointなどHIDとして開けないデバイス用のフォールバック。
+/// Get the name shown in Device Manager (DEVPKEY_NAME).
+/// Fallback for devices that cannot be opened as HID, such as PS/2 TrackPoints.
 fn devnode_name(path: &str) -> Option<String> {
-    // 例: \\?\HID#VID_1234&PID_5678#7&abc#{guid} → HID\VID_1234&PID_5678\7&abc
+    // e.g. \\?\HID#VID_1234&PID_5678#7&abc#{guid} → HID\VID_1234&PID_5678\7&abc
     let trimmed = path.strip_prefix(r"\\?\")?;
     let parts: Vec<&str> = trimmed.split('#').collect();
     if parts.len() < 3 {

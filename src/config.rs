@@ -6,22 +6,23 @@ use std::path::PathBuf;
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct Config {
-    /// Raw Inputの移動量1カウントあたりのホイールdelta(120で1ノッチ相当)。
+    /// Wheel delta per count of Raw Input motion (120 equals one notch).
     pub scroll_speed: f64,
-    /// 水平スクロールを有効にするか。
+    /// Whether to enable horizontal scrolling.
     pub horizontal_scroll: bool,
-    /// 垂直スクロールの方向を反転するか。
+    /// Whether to invert the vertical scroll direction.
     pub invert_vertical: bool,
-    /// ミドルボタン押下中にこのカウント以上動いたら「ドラッグ」とみなす閾値。
+    /// If the pointer moves more than this many counts while the middle button
+    /// is held, the press is treated as a drag instead of a click.
     pub drag_threshold: u32,
-    /// デバイスのインターフェイスパス → 設定。
+    /// Device interface path → settings.
     pub devices: BTreeMap<String, DeviceConfig>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DeviceConfig {
     pub enabled: bool,
-    /// 表示用の名前(キャッシュ)。判定には使わない。
+    /// Display name (cached). Not used for matching.
     pub name: String,
 }
 

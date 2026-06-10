@@ -1,12 +1,13 @@
-// TrackPointのミドルボタン・ドラッグをスクロールに変換する常駐ツール。
+// Tray-resident tool that turns TrackPoint middle-button drags into scrolling.
 //
-// 仕組み:
-// - Raw Input (WM_INPUT) でイベントの発生元デバイスを特定する(ブロックは不可)。
-// - 低レベルマウスフック (WH_MOUSE_LL) で入力をブロック・置換する(デバイス特定は不可)。
-// - フックでWM_MBUTTONDOWNを受けたら、対応するWM_INPUT(先にキューに入っている)を
-//   その場でポンプして発生元デバイスを突き合わせる。
-// - 有効なデバイスなら押下を飲み込み、動かずに離されたら本来のクリックを合成、
-//   閾値以上動いたらカーソルを凍結してRaw Inputの移動量をホイールdeltaに変換する。
+// How it works:
+// - Raw Input (WM_INPUT) identifies which device an event came from (cannot block input).
+// - A low-level mouse hook (WH_MOUSE_LL) blocks and replaces input (cannot identify the device).
+// - When the hook receives WM_MBUTTONDOWN, it pumps the corresponding WM_INPUT
+//   (already queued ahead of the hook) on the spot to match the source device.
+// - If the device is enabled, the press is swallowed; releasing without moving
+//   synthesizes the original click, while moving beyond the threshold freezes the
+//   cursor and converts Raw Input motion into wheel deltas.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod config;
@@ -56,7 +57,7 @@ pub fn engine() -> &'static Mutex<Engine> {
 
 fn fatal(msg: &str) {
     let text = wide(msg);
-    let title = wide("MiddleClick Scroll for TrackPoint エラー");
+    let title = wide("MiddleClick Scroll for TrackPoint - Error");
     unsafe {
         MessageBoxW(
             None,
@@ -78,18 +79,18 @@ fn main() {
         fatal(&msg);
     }));
     if let Err(e) = run() {
-        fatal(&format!("起動に失敗しました: {e}"));
+        fatal(&format!("Failed to start: {e}"));
         std::process::exit(1);
     }
 }
 
 fn run() -> windows::core::Result<()> {
     unsafe {
-        // 二重起動防止。
+        // Prevent multiple instances.
         let mutex_name = wide("Local\\middleclick-scroll-instance");
         let _instance_mutex = CreateMutexW(None, true, PCWSTR(mutex_name.as_ptr()))?;
         if GetLastError() == ERROR_ALREADY_EXISTS {
-            fatal("すでに起動しています。");
+            fatal("MiddleClick Scroll is already running.");
             return Ok(());
         }
 
@@ -128,7 +129,7 @@ fn run() -> windows::core::Result<()> {
         )?;
         MAIN_HWND.store(hwnd.0 as isize, Ordering::SeqCst);
 
-        // マウス全般のRaw Inputを受け取る(フォーカス不要、デバイス増減通知つき)。
+        // Receive Raw Input for all mice (no focus required, with device arrival/removal notifications).
         let rid = RAWINPUTDEVICE {
             usUsagePage: 0x01, // Generic Desktop
             usUsage: 0x02,     // Mouse
@@ -179,7 +180,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 LRESULT(0)
             }
             m if Some(&m) == TASKBAR_CREATED.get() => {
-                // エクスプローラー再起動時にトレイアイコンを復元する。
+                // Restore the tray icon when Explorer restarts.
                 tray::add_icon(hwnd);
                 LRESULT(0)
             }
@@ -212,7 +213,7 @@ unsafe fn handle_raw_input(lparam: LPARAM) {
         let device = raw.header.hDevice.0 as isize;
         let button_flags = mouse.Anonymous.Anonymous.usButtonFlags;
 
-        // 注入イベント(device == 0)は突き合わせ対象にしない。
+        // Injected events (device == 0) are excluded from matching.
         if button_flags & RI_MOUSE_MIDDLE_BUTTON_DOWN != 0 && device != 0 {
             engine().lock().unwrap().push_middle_down(device);
         }
@@ -230,8 +231,9 @@ unsafe fn handle_raw_input(lparam: LPARAM) {
     }
 }
 
-/// フック内で保留中のWM_INPUTをポンプし、押下イベントの発生元デバイスを確定させる。
-/// WM_INPUTはフックより先にキューへ投函されるため、通常は即座に見つかる。
+/// Pump pending WM_INPUT messages from inside the hook to determine the source
+/// device of the press event. WM_INPUT is posted to the queue before the hook
+/// fires, so it is normally found immediately.
 unsafe fn pump_raw_input() {
     unsafe {
         let hwnd = HWND(MAIN_HWND.load(Ordering::SeqCst) as *mut _);
@@ -267,7 +269,7 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
         let msg = wparam.0 as u32;
         match msg {
             WM_MBUTTONDOWN if !injected_by_us => {
-                // ポンプ中の再入(ありえるのはmove程度)では判定しない。
+                // Don't handle reentrant calls while pumping (realistically only mouse moves can reenter).
                 if !IN_PUMP.swap(true, Ordering::SeqCst) {
                     pump_raw_input();
                     IN_PUMP.store(false, Ordering::SeqCst);
@@ -288,7 +290,7 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
                 }
             }
             WM_MOUSEMOVE => {
-                // スクロール候補/スクロール中はカーソルを動かさない。
+                // Freeze the cursor while a scroll is pending or in progress.
                 if engine().lock().unwrap().is_active() {
                     return LRESULT(1);
                 }

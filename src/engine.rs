@@ -9,24 +9,24 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 use crate::config::{self, Config, DeviceConfig};
 use crate::devices::MouseDevice;
 
-/// 自分が注入したイベントの目印(dwExtraInfo)。"TPSS"
+/// Marker (dwExtraInfo) for events we injected ourselves. "TPSS"
 pub const MAGIC_EXTRA: usize = 0x5450_5353;
 
-/// ミドルボタンが離されたときにフックが取るべき動作。
+/// Action the hook should take when the middle button is released.
 pub enum UpAction {
-    /// 関与しない。そのまま通す。
+    /// Not ours. Let it through unchanged.
     Pass,
-    /// 飲み込んで何もしない(スクロール終了)。
+    /// Swallow it and do nothing (scroll finished).
     Swallow,
-    /// 飲み込んだ上で、本来のミドルクリックを合成して送る。
+    /// Swallow it and synthesize the original middle click.
     SynthClick,
 }
 
 enum State {
     Idle,
-    /// ミドルボタン押下直後。クリックかドラッグか未確定。
+    /// Middle button just pressed; not yet known whether it's a click or a drag.
     Pending { device: isize, moved: i32 },
-    /// ドラッグと確定し、スクロール中。
+    /// Confirmed as a drag; scrolling.
     Scrolling { device: isize },
 }
 
@@ -38,7 +38,7 @@ struct PendingDown {
 pub struct Engine {
     pub config: Config,
     pub devices: Vec<MouseDevice>,
-    /// Raw Inputで観測したミドルボタン押下。フックが対応するイベントと突き合わせて消費する。
+    /// Middle-button presses observed via Raw Input. The hook matches and consumes them.
     pending_downs: VecDeque<PendingDown>,
     state: State,
     acc_v: f64,
@@ -66,8 +66,8 @@ impl Engine {
         self.sync_config_with_devices();
     }
 
-    /// 接続中のデバイスを設定に登録する。初出のデバイスは名前に
-    /// "trackpoint" を含む場合のみデフォルトでオンにする。
+    /// Register connected devices in the config. A device seen for the first
+    /// time is enabled by default only if its name contains "trackpoint".
     fn sync_config_with_devices(&mut self) {
         let mut changed = false;
         for d in &self.devices {
@@ -85,7 +85,7 @@ impl Engine {
         }
     }
 
-    /// Raw Inputでミドルボタン押下を観測した(フックより先に届く)。
+    /// A middle-button press was observed via Raw Input (arrives before the hook).
     pub fn push_middle_down(&mut self, device: isize) {
         self.pending_downs.push_back(PendingDown { device, at: Instant::now() });
         if self.pending_downs.len() > 8 {
@@ -99,7 +99,7 @@ impl Engine {
             .any(|p| p.at.elapsed().as_millis() < PENDING_DOWN_TTL_MS)
     }
 
-    /// フックがWM_MBUTTONDOWNを受けた。trueなら飲み込む(=スクロール候補)。
+    /// The hook received WM_MBUTTONDOWN. Returns true to swallow it (= scroll candidate).
     pub fn on_middle_down(&mut self) -> bool {
         while let Some(front) = self.pending_downs.front() {
             if front.at.elapsed().as_millis() >= PENDING_DOWN_TTL_MS {
@@ -109,7 +109,7 @@ impl Engine {
             }
         }
         let Some(p) = self.pending_downs.pop_front() else {
-            // 発生元デバイスが特定できない場合は元の動作のまま通す。
+            // If the source device cannot be determined, let the original behavior through.
             return false;
         };
         if !matches!(self.state, State::Idle) {
@@ -139,12 +139,12 @@ impl Engine {
         }
     }
 
-    /// Pending/Scrolling中はカーソル移動を凍結する。
+    /// Cursor movement is frozen while Pending or Scrolling.
     pub fn is_active(&self) -> bool {
         !matches!(self.state, State::Idle)
     }
 
-    /// Raw Inputの相対移動。スクロールに変換すべきdelta(垂直, 水平)を返す。
+    /// Relative motion from Raw Input. Returns the (vertical, horizontal) deltas to convert into scrolling.
     pub fn on_raw_move(&mut self, device: isize, dx: i32, dy: i32) -> Option<(i32, i32)> {
         match &mut self.state {
             State::Pending { device: d, moved } if *d == device => {
@@ -220,7 +220,7 @@ pub fn send_wheel(v: i32, h: i32) {
     }
 }
 
-/// 飲み込んだミドルクリックを本来のクリックとして送り直す。
+/// Re-send a swallowed middle click as the original click.
 pub fn send_middle_click() {
     let inputs = [
         mouse_input(MOUSEEVENTF_MIDDLEDOWN, 0),

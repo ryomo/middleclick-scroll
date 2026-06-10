@@ -55,7 +55,7 @@ pub fn remove_icon(hwnd: HWND) {
 }
 
 pub fn show_menu(hwnd: HWND) {
-    // (パス, 表示名, 有効) のスナップショット。メニュー表示中はロックを持たない。
+    // Snapshot of (path, display name, enabled). Don't hold the lock while the menu is shown.
     let items: Vec<(String, String, bool)> = {
         let eng = engine().lock().unwrap();
         let mut items = Vec::new();
@@ -70,7 +70,7 @@ pub fn show_menu(hwnd: HWND) {
         }
         items
     };
-    // 同名デバイスには連番を付けて区別できるようにする。
+    // Number devices with identical names so they can be told apart.
     let mut labels: Vec<String> = items.iter().map(|(_, name, _)| name.clone()).collect();
     for i in 0..labels.len() {
         let name = &items[i].1;
@@ -83,7 +83,7 @@ pub fn show_menu(hwnd: HWND) {
     unsafe {
         let Ok(menu) = CreatePopupMenu() else { return };
         if items.is_empty() {
-            let text = wide("(マウスデバイスが見つかりません)");
+            let text = wide("(No mouse devices found)");
             let _ = AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, PCWSTR(text.as_ptr()));
         }
         for (i, (_, _, enabled)) in items.iter().enumerate() {
@@ -92,14 +92,15 @@ pub fn show_menu(hwnd: HWND) {
             let _ = AppendMenuW(menu, MF_STRING | check, CMD_DEVICE_BASE + i, PCWSTR(text.as_ptr()));
         }
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
-        let text = wide("設定ファイルを開く");
+        let text = wide("Open config file");
         let _ = AppendMenuW(menu, MF_STRING, CMD_OPEN_CONFIG, PCWSTR(text.as_ptr()));
-        let text = wide("終了");
+        let text = wide("Exit");
         let _ = AppendMenuW(menu, MF_STRING, CMD_EXIT, PCWSTR(text.as_ptr()));
 
         let mut pt = POINT::default();
         let _ = GetCursorPos(&mut pt);
-        // トレイメニューの定石: 前面化しないとメニューが閉じなくなる。
+        // Well-known tray menu quirk: unless our window is brought to the
+        // foreground first, the menu won't close when clicking elsewhere.
         let _ = SetForegroundWindow(hwnd);
         let cmd = TrackPopupMenu(
             menu,
@@ -119,7 +120,7 @@ pub fn show_menu(hwnd: HWND) {
                 let _ = DestroyWindow(hwnd);
             }
             CMD_OPEN_CONFIG => {
-                // 設定ファイルが未作成なら現在の設定で作る。
+                // Create the config file from the current settings if it doesn't exist yet.
                 {
                     let eng = engine().lock().unwrap();
                     if !config::path().exists() {

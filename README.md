@@ -1,56 +1,59 @@
 # MiddleClick Scroll for TrackPoint
 
-ThinkPadなどのTrackPointで、ミドルボタンを押したまま上下左右にドラッグするとスクロールできるようにするWindows 11用の常駐ツール。
+A Windows 11 tray-resident tool that lets you scroll by dragging in any direction while holding the middle button on a TrackPoint (e.g. on ThinkPads).
 
-- ミドルボタンを押したまま動かすとスクロール(押している間カーソルは動かない)
-- 動かさずに離せば、通常のミドルクリックとしてそのまま動作する
-- デバイス毎に有効/無効を切り替えられる
+- Hold the middle button and move to scroll (the cursor stays frozen while pressed)
+- Release without moving and it acts as a normal middle click
+- Can be enabled/disabled per device
 
-## 使い方
+## Usage
 
 ```
 cargo build --release
 .\target\release\middleclick-scroll.exe
 ```
 
-起動するとシステムトレイに常駐します。トレイアイコンをクリックするとメニューが開き、
-接続中のマウスデバイス一覧から対象デバイスをオン・オフできます。
+When launched, it sits in the system tray. Clicking the tray icon opens a menu
+where you can toggle individual devices from the list of connected mice.
 
-Windows起動時に自動実行したい場合は、`Win+R` → `shell:startup` で開くフォルダーに
-exeへのショートカットを置いてください。
+To run it automatically at Windows startup, place a shortcut to the exe in the
+folder opened by `Win+R` → `shell:startup`.
 
-## デバイスの判別について
+## Device detection
 
-TrackPointかどうかをOSのAPIだけで確実に判定する方法はないため、デバイス毎の
-オン・オフをユーザーが設定する方式にしています。初めて見つかったデバイスは、
-名前またはデバイスパスに `trackpoint` を含む場合のみデフォルトでオンになります
-(例: ThinkPad内蔵の `TrackPoint Device` は自動でオン)。
+There is no reliable way to tell whether a device is a TrackPoint using OS APIs
+alone, so per-device on/off is left to the user. A newly discovered device is
+enabled by default only if its name or device path contains `trackpoint`
+(e.g. the built-in ThinkPad `TrackPoint Device` is enabled automatically).
 
-## 設定ファイル
+## Configuration file
 
-`%APPDATA%\middleclick-scroll\config.toml`(トレイメニューの「設定ファイルを開く」からも開けます)。
-変更はツールの再起動後に反映されます(デバイスのオン・オフはトレイメニューなら即時)。
+`%APPDATA%\middleclick-scroll\config.toml` (also reachable via "Open config file" in the tray menu).
+Changes take effect after restarting the tool (device on/off is immediate when done from the tray menu).
 
-| キー | デフォルト | 意味 |
+| Key | Default | Meaning |
 |---|---|---|
-| `scroll_speed` | `4.0` | 移動量1カウントあたりのホイールdelta(120で1ノッチ相当)。大きいほど速い |
-| `horizontal_scroll` | `true` | 水平スクロールを有効にするか |
-| `invert_vertical` | `false` | 垂直スクロールの方向を反転するか |
-| `drag_threshold` | `3` | この移動量(カウント)を超えたらクリックではなくドラッグとみなす |
-| `[devices."..."]` | — | デバイス毎の `enabled` と表示名(自動生成) |
+| `scroll_speed` | `4.0` | Wheel delta per count of movement (120 equals one notch). Higher is faster |
+| `horizontal_scroll` | `true` | Whether to enable horizontal scrolling |
+| `invert_vertical` | `false` | Whether to invert the vertical scroll direction |
+| `drag_threshold` | `3` | If the pointer moves more than this many counts, the press is treated as a drag instead of a click |
+| `[devices."..."]` | — | Per-device `enabled` flag and display name (auto-generated) |
 
-## 仕組み
+## How it works
 
-- Raw Input (`WM_INPUT`) でマウスイベントの発生元デバイスを特定する(Raw Inputは入力のブロックができない)。
-- 低レベルマウスフック (`WH_MOUSE_LL`) で入力をブロック・置換する(フックは発生元デバイスが分からない)。
-- フックがミドルボタン押下を受けた時点で、先にキューへ届いているRaw Inputイベントを
-  ポンプして突き合わせ、発生元デバイスを確定する。
-- 有効なデバイスからの押下なら飲み込み、`drag_threshold` 以内で離されたら本来の
-  ミドルクリックを合成して送出、超えて動いたらRaw Inputの移動量をホイールイベント
-  (`MOUSEEVENTF_WHEEL` / `MOUSEEVENTF_HWHEEL`)に変換する。
+- Raw Input (`WM_INPUT`) identifies which device a mouse event came from (Raw Input cannot block input).
+- A low-level mouse hook (`WH_MOUSE_LL`) blocks and replaces input (the hook cannot identify the source device).
+- When the hook receives a middle-button press, it pumps the Raw Input events
+  already waiting in the queue and matches them against the press to determine
+  which device it came from.
+- If the press came from an enabled device, it is swallowed. If the button is
+  released before moving more than `drag_threshold`, the original middle click
+  is synthesized and sent; if it moves beyond the threshold, the Raw Input
+  motion is converted into wheel events
+  (`MOUSEEVENTF_WHEEL` / `MOUSEEVENTF_HWHEEL`).
 
-## 制限事項
+## Limitations
 
-- 管理者権限で動いているアプリの上では、本ツールを管理者権限で起動しない限り効かない(低レベルフックの仕様)。
-- スクロール中(ミドルボタン押下中)は、別のマウスのカーソル移動も一時的に止まる。
-- 古いアプリで120未満のホイールdeltaが無視される場合、`scroll_speed` を上げると改善することがある。
+- Has no effect on windows of apps running as administrator, unless this tool is also run as administrator (a limitation of low-level hooks).
+- While scrolling (middle button held), cursor movement from other mice is also temporarily frozen.
+- If an older app ignores wheel deltas smaller than 120, raising `scroll_speed` may help.
