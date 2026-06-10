@@ -3,6 +3,9 @@ name = "middleclick-scroll"
 version = "0.1.0"
 edition = "2024"
 
+[build-dependencies]
+winres = "0.1"
+
 [dependencies]
 dirs = "6.0.0"
 serde = { version = "1.0.228", features = ["derive"] }

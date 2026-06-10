@@ -1,13 +1,13 @@
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{HWND, LPARAM, POINT, WPARAM};
-use windows::Win32::Graphics::Gdi::{CreateBitmap, DeleteObject};
+use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, POINT, WPARAM};
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::{
     ShellExecuteW, Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE,
     NOTIFYICONDATAW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    AppendMenuW, CreateIconIndirect, CreatePopupMenu, DestroyMenu, DestroyWindow, GetCursorPos,
-    PostMessageW, SetForegroundWindow, TrackPopupMenu, HICON, ICONINFO, MF_CHECKED, MF_GRAYED,
+    AppendMenuW, CreatePopupMenu, DestroyMenu, DestroyWindow, GetCursorPos, LoadIconW,
+    PostMessageW, SetForegroundWindow, TrackPopupMenu, MF_CHECKED, MF_GRAYED,
     MF_SEPARATOR, MF_STRING, MF_UNCHECKED, SW_SHOWNORMAL, TPM_NONOTIFY, TPM_RETURNCMD,
     TPM_RIGHTBUTTON, WM_APP, WM_NULL,
 };
@@ -24,13 +24,16 @@ const CMD_DEVICE_BASE: usize = 100;
 
 pub fn add_icon(hwnd: HWND) {
     unsafe {
+        let hmodule = GetModuleHandleW(None).unwrap();
+        let hicon = LoadIconW(Some(HINSTANCE(hmodule.0)), PCWSTR(1usize as *const u16))
+            .unwrap();
         let mut nid = NOTIFYICONDATAW {
             cbSize: size_of::<NOTIFYICONDATAW>() as u32,
             hWnd: hwnd,
             uID: TRAY_ID,
             uFlags: NIF_MESSAGE | NIF_ICON | NIF_TIP,
             uCallbackMessage: WM_TRAY,
-            hIcon: create_icon(),
+            hIcon: hicon,
             ..Default::default()
         };
         let tip = wide("MiddleClick Scroll for TrackPoint");
@@ -140,41 +143,5 @@ pub fn show_menu(hwnd: HWND) {
             }
             _ => {}
         }
-    }
-}
-
-/// 32x32のアイコンをコードで生成する(赤丸+白の上下矢印)。
-fn create_icon() -> HICON {
-    const S: usize = 32;
-    let mut pixels = [0u32; S * S]; // 0xAARRGGBB
-    for y in 0..S {
-        for x in 0..S {
-            let fx = x as f64 - 15.5;
-            let fy = y as f64 - 15.5;
-            if (fx * fx + fy * fy).sqrt() > 14.5 {
-                continue;
-            }
-            let ax = fx.abs();
-            let arrow = (y >= 5 && y <= 10 && ax <= (y as f64 - 4.0) * 0.9)
-                || (y >= 21 && y <= 26 && ax <= (27.0 - y as f64) * 0.9)
-                || (y > 10 && y < 21 && ax <= 1.6);
-            pixels[y * S + x] = if arrow { 0xFFFF_FFFF } else { 0xFFD8_2A2A };
-        }
-    }
-    unsafe {
-        let hbm_color = CreateBitmap(S as i32, S as i32, 1, 32, Some(pixels.as_ptr() as *const _));
-        let mask = [0u8; S * 4]; // モノクロ1bpp 32x32 = 128バイト
-        let hbm_mask = CreateBitmap(S as i32, S as i32, 1, 1, Some(mask.as_ptr() as *const _));
-        let info = ICONINFO {
-            fIcon: true.into(),
-            xHotspot: 0,
-            yHotspot: 0,
-            hbmMask: hbm_mask,
-            hbmColor: hbm_color,
-        };
-        let icon = CreateIconIndirect(&info).unwrap_or_default();
-        let _ = DeleteObject(hbm_color.into());
-        let _ = DeleteObject(hbm_mask.into());
-        icon
     }
 }
