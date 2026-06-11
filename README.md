@@ -73,3 +73,9 @@ The binary will be at `target\release\middleclick-scroll.exe`.
 ### Release Process
 
 TBD
+
+<br>
+
+## License
+
+MIT
