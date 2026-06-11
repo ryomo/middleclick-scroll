@@ -14,6 +14,16 @@ A Windows 11 tray-resident tool that lets you scroll by dragging in any directio
 
 Download `middleclick-scroll.exe` from the [Releases](https://github.com/ryomo/middleclick-scroll/releases) page and place it anywhere you like (e.g., `C:\Tools\middleclick-scroll.exe`).
 
+### SmartScreen warning
+
+Because this binary is not code-signed, Windows SmartScreen may block it from running.
+
+To unblock the file:
+
+1. Right-click `middleclick-scroll.exe` → **Properties**.
+2. At the bottom of the **General** tab, check **Unblock**.
+3. Click **OK**.
+
 ### Usage
 
 When launched, it sits in the system tray. Clicking the tray icon opens a menu where you can toggle individual devices from the list of connected mice.
@@ -52,7 +62,7 @@ A newly discovered device is enabled by default only if its name or device path 
 
 ## Development
 
-### Build
+### Building
 
 ```powershell
 cargo build --release
