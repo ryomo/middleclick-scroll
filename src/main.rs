@@ -280,6 +280,10 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
             }
             WM_MBUTTONUP if !injected_by_us => {
                 let action = engine().lock().unwrap().on_middle_up();
+                if !matches!(action, UpAction::Pass) {
+                    // Emit any motion accumulated since the last flush.
+                    engine::flush_and_send();
+                }
                 match action {
                     UpAction::Pass => {}
                     UpAction::Swallow => return LRESULT(1),

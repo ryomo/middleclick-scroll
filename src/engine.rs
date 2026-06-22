@@ -43,9 +43,13 @@ pub struct Engine {
     state: State,
     acc_v: f64,
     acc_h: f64,
+    last_flush: Instant,
 }
 
 const PENDING_DOWN_TTL_MS: u128 = 500;
+/// Minimum gap between wheel events. Motion is accumulated in between so we emit
+/// few large events instead of one per device report, capping the SendInput rate.
+const FLUSH_INTERVAL_MS: u128 = 8;
 
 impl Engine {
     pub fn new(config: Config, devices: Vec<MouseDevice>) -> Self {
@@ -56,6 +60,7 @@ impl Engine {
             state: State::Idle,
             acc_v: 0.0,
             acc_h: 0.0,
+            last_flush: Instant::now(),
         };
         e.sync_config_with_devices();
         e
@@ -144,13 +149,17 @@ impl Engine {
         !matches!(self.state, State::Idle)
     }
 
-    /// Relative motion from Raw Input. Returns the (vertical, horizontal) deltas to convert into scrolling.
+    /// Relative motion from Raw Input. Accumulates the motion and emits a wheel
+    /// event at most once per `FLUSH_INTERVAL_MS`, so a flood of tiny device
+    /// reports collapses into few larger events. Returns the (vertical,
+    /// horizontal) deltas to send, or None while still accumulating.
     pub fn on_raw_move(&mut self, device: isize, dx: i32, dy: i32) -> Option<(i32, i32)> {
         match &mut self.state {
             State::Pending { device: d, moved } if *d == device => {
                 *moved += dx.abs() + dy.abs();
                 if *moved > self.config.drag_threshold as i32 {
                     self.state = State::Scrolling { device };
+                    self.last_flush = Instant::now();
                 }
                 None
             }
@@ -160,14 +169,25 @@ impl Engine {
                 if self.config.horizontal_scroll {
                     self.acc_h += dx as f64 * self.config.scroll_speed;
                 }
-                let v = self.acc_v as i32;
-                let h = self.acc_h as i32;
-                self.acc_v -= v as f64;
-                self.acc_h -= h as f64;
-                if v != 0 || h != 0 { Some((v, h)) } else { None }
+                if self.last_flush.elapsed().as_millis() >= FLUSH_INTERVAL_MS {
+                    self.last_flush = Instant::now();
+                    self.flush()
+                } else {
+                    None
+                }
             }
             _ => None,
         }
+    }
+
+    /// Drain the accumulated motion as whole wheel units, keeping the sub-unit
+    /// remainder for next time. Returns (vertical, horizontal), or None if empty.
+    pub fn flush(&mut self) -> Option<(i32, i32)> {
+        let v = self.acc_v as i32;
+        let h = self.acc_h as i32;
+        self.acc_v -= v as f64;
+        self.acc_h -= h as f64;
+        if v != 0 || h != 0 { Some((v, h)) } else { None }
     }
 
     fn device_enabled(&self, device: isize) -> bool {
@@ -202,6 +222,15 @@ fn mouse_input(flags: MOUSE_EVENT_FLAGS, data: i32) -> INPUT {
                 dwExtraInfo: MAGIC_EXTRA,
             },
         },
+    }
+}
+
+/// Drain any motion left below the flush interval and emit it. Called once when
+/// the scroll ends so the last fraction of movement is not dropped.
+pub fn flush_and_send() {
+    let wheel = crate::engine().lock().unwrap().flush();
+    if let Some((v, h)) = wheel {
+        send_wheel(v, h);
     }
 }
 
