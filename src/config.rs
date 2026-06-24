@@ -54,10 +54,12 @@ pub fn load() -> Config {
 
 pub fn save(config: &Config) {
     let p = path();
-    if let Some(dir) = p.parent() {
+    let parent = p.parent();
+    if let Some(dir) = parent {
         let _ = fs::create_dir_all(dir);
     }
-    if let Ok(s) = toml::to_string_pretty(config) {
+    let serialized = toml::to_string_pretty(config);
+    if let Ok(s) = serialized {
         let _ = fs::write(p, s);
     }
 }

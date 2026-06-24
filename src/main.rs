@@ -72,13 +72,15 @@ fn main() {
     std::panic::set_hook(Box::new(|info| {
         let msg = info.to_string();
         let log = config::path().with_file_name("panic.log");
-        if let Some(dir) = log.parent() {
+        let parent = log.parent();
+        if let Some(dir) = parent {
             let _ = std::fs::create_dir_all(dir);
         }
         let _ = std::fs::write(log, &msg);
         fatal(&msg);
     }));
-    if let Err(e) = run() {
+    let result = run();
+    if let Err(e) = result {
         fatal(&format!("Failed to start: {e}"));
         std::process::exit(1);
     }

@@ -202,7 +202,8 @@ impl Engine {
     }
 
     pub fn toggle_device(&mut self, path: &str) {
-        if let Some(c) = self.config.devices.get_mut(path) {
+        let device = self.config.devices.get_mut(path);
+        if let Some(c) = device {
             c.enabled = !c.enabled;
             config::save(&self.config);
         }
