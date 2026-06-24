@@ -140,10 +140,12 @@ fn run() -> windows::core::Result<()> {
         };
         RegisterRawInputDevices(&[rid], size_of::<RAWINPUTDEVICE>() as u32)?;
 
+        // Mouse hook that blocks and replaces input.
         let hook = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), None, 0)?;
 
         tray::add_icon(hwnd);
 
+        // Main message loop of the Windows GUI app.
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).0 > 0 {
             let _ = TranslateMessage(&msg);
