@@ -153,7 +153,6 @@ fn run() -> windows::core::Result<()> {
         }
 
         let _ = UnhookWindowsHookEx(hook);
-        tray::remove_icon(hwnd);
         Ok(())
     }
 }
@@ -180,6 +179,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 LRESULT(0)
             }
             WM_DESTROY => {
+                tray::remove_icon(hwnd);
                 PostQuitMessage(0);
                 LRESULT(0)
             }
