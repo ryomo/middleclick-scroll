@@ -46,12 +46,12 @@ pub struct Engine {
     last_flush: Instant,
 }
 
-const PENDING_DOWN_TTL_MS: u128 = 500;
-/// Minimum gap between wheel events. Motion is accumulated in between so we emit
-/// few large events instead of one per device report, capping the SendInput rate.
-const FLUSH_INTERVAL_MS: u128 = 8;
-
 impl Engine {
+    const PENDING_DOWN_TTL_MS: u128 = 500;
+    /// Minimum gap between wheel events. Motion is accumulated in between so we emit
+    /// few large events instead of one per device report, capping the SendInput rate.
+    const FLUSH_INTERVAL_MS: u128 = 8;
+
     pub fn new(config: Config, devices: Vec<MouseDevice>) -> Self {
         let mut e = Engine {
             config,
@@ -101,13 +101,13 @@ impl Engine {
     pub fn has_pending_down(&self) -> bool {
         self.pending_downs
             .iter()
-            .any(|p| p.at.elapsed().as_millis() < PENDING_DOWN_TTL_MS)
+            .any(|p| p.at.elapsed().as_millis() < Self::PENDING_DOWN_TTL_MS)
     }
 
     /// The hook received WM_MBUTTONDOWN. Returns true to swallow it (= scroll candidate).
     pub fn on_middle_down(&mut self) -> bool {
         while let Some(front) = self.pending_downs.front() {
-            if front.at.elapsed().as_millis() >= PENDING_DOWN_TTL_MS {
+            if front.at.elapsed().as_millis() >= Self::PENDING_DOWN_TTL_MS {
                 self.pending_downs.pop_front();
             } else {
                 break;
@@ -169,7 +169,7 @@ impl Engine {
                 if self.config.horizontal_scroll {
                     self.acc_h += dx as f64 * self.config.scroll_speed;
                 }
-                if self.last_flush.elapsed().as_millis() >= FLUSH_INTERVAL_MS {
+                if self.last_flush.elapsed().as_millis() >= Self::FLUSH_INTERVAL_MS {
                     self.last_flush = Instant::now();
                     self.flush()
                 } else {
