@@ -51,6 +51,8 @@ impl Engine {
     /// Minimum gap between wheel events. Motion is accumulated in between so we emit
     /// few large events instead of one per device report, capping the SendInput rate.
     const FLUSH_INTERVAL_MS: u128 = 8;
+    /// Wheel delta of one notch.
+    const WHEEL_DELTA: f64 = 120.0;
 
     pub fn new(config: Config, devices: Vec<MouseDevice>) -> Self {
         let mut e = Engine {
@@ -180,11 +182,13 @@ impl Engine {
         }
     }
 
-    /// Drain the accumulated motion as whole wheel units, keeping the sub-unit
-    /// remainder for next time. Returns (vertical, horizontal), or None if empty.
+    /// Drain the accumulated motion as whole wheel units (whole notches of
+    /// `WHEEL_DELTA` when `quantize_wheel` is set), keeping the remainder for next
+    /// time. Returns (vertical, horizontal), or None if empty.
     pub fn flush(&mut self) -> Option<(i32, i32)> {
-        let v = self.acc_v as i32;
-        let h = self.acc_h as i32;
+        let unit = if self.config.quantize_wheel { Self::WHEEL_DELTA } else { 1.0 };
+        let v = ((self.acc_v / unit).trunc() * unit) as i32;
+        let h = ((self.acc_h / unit).trunc() * unit) as i32;
         self.acc_v -= v as f64;
         self.acc_h -= h as f64;
         if v != 0 || h != 0 { Some((v, h)) } else { None }

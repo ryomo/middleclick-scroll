@@ -39,7 +39,8 @@ Changes take effect after restarting the tool.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `scroll_speed` | `4.0` | Scroll speed; higher is faster |
+| `scroll_speed` | `10.0` | Scroll speed; higher is faster |
+| `quantize_wheel` | `true` | Send wheel events only in whole notches (120). Needed for UWP/WinUI apps (Microsoft Store apps, PowerToys); set to `false` for smoother scrolling in apps that handle fine-grained wheel input, such as browsers |
 | `horizontal_scroll` | `true` | Enable horizontal scrolling |
 | `invert_vertical` | `false` | Invert the vertical scroll direction |
 | `drag_threshold` | `3` | Pointer movement (counts) before the press is treated as a drag instead of a click |

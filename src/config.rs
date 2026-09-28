@@ -8,6 +8,10 @@ use std::path::PathBuf;
 pub struct Config {
     /// Wheel delta per count of Raw Input motion (120 equals one notch).
     pub scroll_speed: f64,
+    /// Emit wheel deltas only in whole notches (multiples of 120). Many UWP/WinUI
+    /// apps mishandle smaller deltas; disable for smoother scrolling in apps that
+    /// support high-resolution wheels (e.g. browsers).
+    pub quantize_wheel: bool,
     /// Whether to enable horizontal scrolling.
     pub horizontal_scroll: bool,
     /// Whether to invert the vertical scroll direction.
@@ -29,7 +33,8 @@ pub struct DeviceConfig {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            scroll_speed: 4.0,
+            scroll_speed: 10.0,
+            quantize_wheel: true,
             horizontal_scroll: true,
             invert_vertical: false,
             drag_threshold: 3,
