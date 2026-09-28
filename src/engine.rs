@@ -185,14 +185,26 @@ impl Engine {
 
     /// Drain the accumulated motion as whole wheel units (whole notches of
     /// `WHEEL_DELTA` when `quantize_wheel` is set), keeping the remainder for next
-    /// time. Returns (vertical, horizontal), or None if empty.
+    /// time. Only the dominant axis is emitted and the other is discarded, since
+    /// stray events on the minor axis interrupt smooth scrolling in some apps
+    /// (e.g. WinUI). Returns (vertical, horizontal), or None if empty.
     pub fn flush(&mut self) -> Option<(i32, i32)> {
         let unit = if self.config.quantize_wheel { Self::WHEEL_DELTA } else { 1.0 };
-        let v = ((self.acc_v / unit).trunc() * unit) as i32;
-        let h = ((self.acc_h / unit).trunc() * unit) as i32;
+        let mut v = ((self.acc_v / unit).trunc() * unit) as i32;
+        let mut h = ((self.acc_h / unit).trunc() * unit) as i32;
+        if v == 0 && h == 0 {
+            return None;
+        }
+        if self.acc_v.abs() >= self.acc_h.abs() {
+            h = 0;
+            self.acc_h = 0.0;
+        } else {
+            v = 0;
+            self.acc_v = 0.0;
+        }
         self.acc_v -= v as f64;
         self.acc_h -= h as f64;
-        if v != 0 || h != 0 { Some((v, h)) } else { None }
+        Some((v, h))
     }
 
     fn device_enabled(&self, device: isize) -> bool {
