@@ -1,0 +1,71 @@
+name: Release
+
+# Manually triggered. Builds the version in Cargo.toml and creates a draft
+# release for tag v<version>. The tag itself is created when the draft is published.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Require main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run this workflow on main (got ${{ github.ref }})"
+          exit 1
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Determine version
+        id: version
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Cargo.toml version '$version' is not X.Y.Z"
+            exit 1
+          fi
+          tag="v$version"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists. Bump the version in Cargo.toml."
+            exit 1
+          fi
+          if gh release list --limit 1000 --json tagName --jq '.[].tagName' | grep -qx "$tag"; then
+            echo "::error::A release (possibly a draft) for $tag already exists."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Generate release notes
+        run: bash .github/scripts/release-notes.sh "${{ steps.version.outputs.tag }}" > notes.md
+
+      - name: Create draft release
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            target/release/middleclick-scroll.exe \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --notes-file notes.md

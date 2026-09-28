@@ -90,7 +90,18 @@ The binary will be at `target\release\middleclick-scroll.exe`.
 
 ### Release Process
 
-TBD
+1. Bump `version` in `Cargo.toml` (e.g. `0.3.0`), run `cargo build` to update `Cargo.lock`, then commit and push to `main`:
+
+   ```powershell
+   git commit -m "chore(release): v0.3.0"
+   git push
+   ```
+
+2. On GitHub, open **Actions → Release → Run workflow** on `main`.
+3. The workflow builds the binary and creates a draft release for `v<version>`. Its notes are generated from `feat:`/`fix:`/other commits since the previous tag (`docs:` and `chore(release):` are omitted).
+4. Review and edit the draft, then publish it. Publishing creates the `v<version>` tag.
+
+To preview the notes locally: `bash .github/scripts/release-notes.sh v0.3.0`
 
 <br>
 
