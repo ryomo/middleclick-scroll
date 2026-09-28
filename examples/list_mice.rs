@@ -1,6 +1,7 @@
 // Temporary probe: prints what `devices::enumerate_mice()` returns.
 // Run with: `cargo run --example list_mice`
 #[path = "../src/util.rs"]
+#[allow(dead_code)] // only a few helpers are needed here
 mod util;
 #[path = "../src/devices.rs"]
 mod devices;
