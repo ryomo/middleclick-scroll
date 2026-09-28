@@ -13,7 +13,7 @@ cargo build                         # debug build: keeps the console window, so 
 cargo build --release               # release build: GUI subsystem, no console (see cfg_attr in main.rs)
 cargo run                           # run the app (only one instance allowed; exit the tray copy first)
 cargo run --example list_mice       # print what devices::enumerate_mice() returns (handle/path/name)
-cargo clippy
+cargo clippy --all-targets          # include examples (rust-analyzer checks all targets too)
 ```
 
 There are no tests. `build.rs` embeds `assets/icon.ico` as resource ID 1 via `winres`, and `tray::add_icon` loads it by that ID.
