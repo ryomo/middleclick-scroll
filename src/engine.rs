@@ -107,7 +107,8 @@ impl Engine {
     }
 
     /// The hook received WM_MBUTTONDOWN. Returns true to swallow it (= scroll candidate).
-    pub fn on_middle_down(&mut self) -> bool {
+    /// `can_inject` is false when our injected input would not reach the target window.
+    pub fn on_middle_down(&mut self, can_inject: bool) -> bool {
         while let Some(front) = self.pending_downs.front() {
             if front.at.elapsed().as_millis() >= Self::PENDING_DOWN_TTL_MS {
                 self.pending_downs.pop_front();
@@ -119,7 +120,7 @@ impl Engine {
             // If the source device cannot be determined, let the original behavior through.
             return false;
         };
-        if !matches!(self.state, State::Idle) {
+        if !matches!(self.state, State::Idle) || !can_inject {
             return false;
         }
         if self.device_enabled(p.device) {

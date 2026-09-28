@@ -277,7 +277,10 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
                 if !IN_PUMP.swap(true, Ordering::SeqCst) {
                     pump_raw_input();
                     IN_PUMP.store(false, Ordering::SeqCst);
-                    if engine().lock().unwrap().on_middle_down() {
+                    // Over an elevated window our wheel/click would be dropped by UIPI,
+                    // so let the press through instead of swallowing it.
+                    let can_inject = !util::is_injection_blocked_at(info.pt);
+                    if engine().lock().unwrap().on_middle_down(can_inject) {
                         return LRESULT(1);
                     }
                 }
