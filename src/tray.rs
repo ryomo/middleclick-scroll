@@ -25,8 +25,9 @@ const CMD_DEVICE_BASE: usize = 100;
 pub fn add_icon(hwnd: HWND) {
     unsafe {
         let hmodule = GetModuleHandleW(None).unwrap();
-        let hicon = LoadIconW(Some(HINSTANCE(hmodule.0)), PCWSTR(1usize as *const u16))
-            .unwrap();
+        // MAKEINTRESOURCE(1): the icon embedded by build.rs.
+        let icon_id = PCWSTR(std::ptr::without_provenance(1));
+        let hicon = LoadIconW(Some(HINSTANCE(hmodule.0)), icon_id).unwrap();
         let mut nid = NOTIFYICONDATAW {
             cbSize: size_of::<NOTIFYICONDATAW>() as u32,
             hWnd: hwnd,

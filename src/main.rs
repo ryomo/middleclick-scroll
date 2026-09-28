@@ -300,12 +300,8 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
                     }
                 }
             }
-            WM_MOUSEMOVE => {
-                // Freeze the cursor while a scroll is pending or in progress.
-                if engine().lock().unwrap().is_active() {
-                    return LRESULT(1);
-                }
-            }
+            // Freeze the cursor while a scroll is pending or in progress.
+            WM_MOUSEMOVE if engine().lock().unwrap().is_active() => return LRESULT(1),
             _ => {}
         }
         CallNextHookEx(None, code, wparam, lparam)
