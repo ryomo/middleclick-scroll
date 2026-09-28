@@ -28,7 +28,24 @@ To unblock the file:
 
 When launched, it sits in the system tray. Clicking the tray icon opens a menu where you can toggle individual devices from the list of connected mice.
 
-To run it automatically at Windows startup, place a shortcut to the exe in the folder opened by `Win+R` → `shell:startup`.
+To run it automatically at Windows startup, use **either** of the following methods.
+
+#### Option 1: Startup folder (simple)
+
+Place a shortcut to the exe in the folder opened by `Win+R` → `shell:startup`.
+
+This is enough for most apps. However, Windows does not let a normal process send input to apps running as administrator (e.g., PowerToys with "Always run as administrator"), so scrolling does not work over their windows; the middle button behaves as a normal middle click there.
+
+#### Option 2: Task Scheduler (run as administrator)
+
+Use this if you also want to scroll in apps running as administrator. It starts the tool elevated at logon:
+
+1. Open **Task Scheduler** → **Create Task...**.
+2. **General** tab: check **Run with highest privileges**.
+3. **Triggers** tab: **New...** → **At log on**.
+4. **Actions** tab: **New...** → **Start a program** → select `middleclick-scroll.exe`.
+5. **Conditions** tab: uncheck **Start the task only if the computer is on AC power**.
+6. **Settings** tab: uncheck **Stop the task if it runs longer than**.
 
 <br>
 
